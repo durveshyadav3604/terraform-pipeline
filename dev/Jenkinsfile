@@ -1,82 +1,61 @@
 pipeline {
-agent any
+    agent any
 
-```
-environment {
-    AWS_DEFAULT_REGION = "ap-south-1"
-    TF_ENV = "dev"
-}
-
-stages {
-
-    stage('Checkout Code') {
-        steps {
-            git branch: 'main',
-                url: 'https://github.com/<your-username>/<your-repo>.git'
-        }
+    environment {
+        AWS_DEFAULT_REGION = "ap-south-1"
     }
 
-    stage('Terraform Init') {
-        steps {
-            withCredentials([[
-                $class: 'AmazonWebServicesCredentialsBinding',
-                credentialsId: 'aws-terraform-creds'
-            ]]) {
-                sh '''
-                cd dev
-                terraform init -reconfigure
-                '''
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/durveshyadav3604/terraform-pipeline.git',
+                    credentialsId: 'github-token'
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-terraform-creds'
+                ]]) {
+                    sh '''
+                        cd dev
+                        terraform init
+                    '''
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-terraform-creds'
+                ]]) {
+                    sh '''
+                        cd dev
+                        terraform plan
+                    '''
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                input message: 'Apply Terraform changes?'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-terraform-creds'
+                ]]) {
+                    sh '''
+                        cd dev
+                        terraform apply -auto-approve
+                    '''
+                }
             }
         }
     }
-
-    stage('Terraform Validate') {
-        steps {
-            sh '''
-            cd dev
-            terraform validate
-            '''
-        }
-    }
-
-    stage('Terraform Plan') {
-        steps {
-            withCredentials([[
-                $class: 'AmazonWebServicesCredentialsBinding',
-                credentialsId: 'aws-terraform-creds'
-            ]]) {
-                sh '''
-                cd dev
-                terraform plan -out=tfplan
-                '''
-            }
-        }
-    }
-
-    stage('Terraform Apply') {
-        steps {
-            input message: "Do you want to apply Terraform changes?"
-            withCredentials([[
-                $class: 'AmazonWebServicesCredentialsBinding',
-                credentialsId: 'aws-terraform-creds'
-            ]]) {
-                sh '''
-                cd dev
-                terraform apply -auto-approve tfplan
-                '''
-            }
-        }
-    }
-}
-
-post {
-    success {
-        echo "Terraform deployment completed successfully"
-    }
-    failure {
-        echo "Terraform deployment failed"
-    }
-}
-```
-
 }
